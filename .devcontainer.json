@@ -1,0 +1,12 @@
+{
+   "dockerFile": "Dockerfile",
+   "extensions": [
+      "ms-vscode.go"
+   ],
+   "forwardPorts": [
+      10001
+   ],
+   "appPort": [
+      "10000:10001"
+   ]
+}
