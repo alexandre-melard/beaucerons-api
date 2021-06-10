@@ -27,7 +27,7 @@ type GremlinResult struct {
 
 func post(request string, script string) ([]byte, error) {
 	client := &http.Client{}
-	fmt.Println(request)
+	//	fmt.Println(request)
 	req, err := http.NewRequest("POST", "http://host.docker.internal:2480/command/beaucerons/"+script, strings.NewReader(request))
 	if err != nil {
 		return nil, fmt.Errorf("the HTTP POST request creation failed with error %s", err)
@@ -70,9 +70,9 @@ func post(request string, script string) ([]byte, error) {
 }
 
 func getDog(w http.ResponseWriter, r *http.Request) {
-	if auth.CheckPermission(w, r, "read:dog") != nil {
-		return
-	}
+	// if auth.CheckPermission(w, r, "read:dog") != nil {
+	// 	return
+	// }
 	vars := mux.Vars(r)
 	uuid := vars["uuid"]
 	var request = fmt.Sprintf(
@@ -88,9 +88,6 @@ func getDog(w http.ResponseWriter, r *http.Request) {
 }
 
 func getDogParents(w http.ResponseWriter, r *http.Request) {
-	if auth.CheckPermission(w, r, "read:dog:parents") != nil {
-		return
-	}
 	vars := mux.Vars(r)
 	uuid := vars["uuid"]
 	var request = fmt.Sprintf(
@@ -106,9 +103,6 @@ func getDogParents(w http.ResponseWriter, r *http.Request) {
 }
 
 func getDogPedigree(w http.ResponseWriter, r *http.Request) {
-	if auth.CheckPermission(w, r, "read:dog:pedigree") != nil {
-		return
-	}
 	vars := mux.Vars(r)
 	uuid := vars["uuid"]
 	depth := vars["depth"]
@@ -134,9 +128,6 @@ func getDogPedigree(w http.ResponseWriter, r *http.Request) {
 }
 
 func getDogOffsprings(w http.ResponseWriter, r *http.Request) {
-	if auth.CheckPermission(w, r, "read:dog:offsprings") != nil {
-		return
-	}
 	vars := mux.Vars(r)
 	uuid := vars["uuid"]
 	depth := vars["depth"]
@@ -163,9 +154,6 @@ func getDogOffsprings(w http.ResponseWriter, r *http.Request) {
 }
 
 func search(w http.ResponseWriter, r *http.Request) {
-	if auth.CheckPermission(w, r, "search") != nil {
-		return
-	}
 	vars := mux.Vars(r)
 	term := vars["term"]
 	limit, err := strconv.Atoi(vars["limit"])
@@ -189,18 +177,18 @@ func handleRequests() {
 	})
 
 	r := mux.NewRouter().StrictSlash(true)
-	r.Handle("/api/search/{limit}/{term}", handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(search))))
+	r.Handle("/api/search/{limit}/{term}", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(search)))))
 	r.Handle("/api/dog/{uuid}", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(getDog)))))
-	r.Handle("/api/dog/{uuid}/parents", handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(getDogParents))))
-	r.Handle("/api/dog/{uuid}/pedigree/{depth}", handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(getDogPedigree))))
-	r.Handle("/api/dog/{uuid}/offsprings/{depth}", handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(getDogOffsprings))))
+	r.Handle("/api/dog/{uuid}/parents", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(getDogParents)))))
+	r.Handle("/api/dog/{uuid}/pedigree/{depth}", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(getDogPedigree)))))
+	r.Handle("/api/dog/{uuid}/offsprings/{depth}", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(getDogOffsprings)))))
 
 	http.Handle("/", r)
 	log.Fatal(http.ListenAndServe(":10000", nil))
 }
 
 func main() {
-	fmt.Println("Rest API v2.11 - Mux Routers")
+	fmt.Println("Rest API v2.12 - Mux Routers")
 	err := godotenv.Load()
 	if err != nil {
 		log.Print("Error loading .env file")
