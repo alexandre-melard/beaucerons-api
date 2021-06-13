@@ -27,7 +27,7 @@ type GremlinResult struct {
 
 func post(request string, script string) ([]byte, error) {
 	client := &http.Client{}
-	//	fmt.Println(request)
+	fmt.Println(request)
 	req, err := http.NewRequest("POST", "http://host.docker.internal:2480/command/beaucerons/"+script, strings.NewReader(request))
 	if err != nil {
 		return nil, fmt.Errorf("the HTTP POST request creation failed with error %s", err)
@@ -69,6 +69,34 @@ func post(request string, script string) ([]byte, error) {
 	return []byte(result), nil
 }
 
+func getDogWithOwnerAndBreeder(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	uuid := vars["uuid"]
+	var request = fmt.Sprintf(
+		"g.V().has('uuid', '%s')."+
+			"project('id', 'type', 'verified', 'name', 'uuid', 'ship', 'tattoo', 'cotation', 'dob', 'color', 'other', 'breeder', 'owner')."+
+			"  by(id).by(label).by('verified').by('name').by('uuid').by('ship').by('tattoo').by('cotation').by('dob').by('color').by('other')."+
+			"  by(__.in('Produced')."+
+			"    project('name', 'uuid', 'affixe')."+
+			"      by('name')."+
+			"      by('uuid')."+
+			"      by("+
+			"        coalesce("+
+			"          values('affixe'), "+
+			"          constant('')"+
+			"        )"+
+			"      )"+
+			"  )."+
+			"  by(__.in('Owns').project('name', 'uuid').by('name').by('uuid'))", uuid)
+	response, err := post(request, "gremlin")
+	if err != nil {
+		fmt.Printf("error in post request %v [%s]\n", err, request)
+		utils.SendError("Error with third party server, check the logs", w, http.StatusInternalServerError)
+	} else {
+		utils.Response(response, w, http.StatusOK)
+	}
+}
+
 func getDog(w http.ResponseWriter, r *http.Request) {
 	// if auth.CheckPermission(w, r, "read:dog") != nil {
 	// 	return
@@ -77,14 +105,15 @@ func getDog(w http.ResponseWriter, r *http.Request) {
 	uuid := vars["uuid"]
 	var request = fmt.Sprintf(
 		"g.V().has('uuid', '%s')."+
-			"project('id', 'type', 'name', 'uuid', 'ship', 'tattoo', 'cotation', 'dob', 'color', 'other')."+
-			"  by(id).by(label).by('name').by('uuid').by('ship').by('tattoo').by('cotation').by('dob').by('color').by('other')", uuid)
+			"project('id', 'type', 'verified', 'name', 'uuid', 'ship', 'tattoo', 'cotation', 'dob', 'color', 'other')."+
+			"  by(id).by(label).by('verified').by('name').by('uuid').by('ship').by('tattoo').by('cotation').by('dob').by('color').by('other')", uuid)
 	response, err := post(request, "gremlin")
 	if err != nil {
-		fmt.Printf("error in post request %v\n", err)
-		w.WriteHeader(500)
+		fmt.Printf("error in post request %v [%s]\n", err, request)
+		utils.SendError("Error with third party server, check the logs", w, http.StatusInternalServerError)
+	} else {
+		utils.Response(response, w, http.StatusOK)
 	}
-	utils.Response(response, w, http.StatusOK)
 }
 
 func getDogParents(w http.ResponseWriter, r *http.Request) {
@@ -92,14 +121,15 @@ func getDogParents(w http.ResponseWriter, r *http.Request) {
 	uuid := vars["uuid"]
 	var request = fmt.Sprintf(
 		"g.V().has('uuid', '%s').in('Parent')."+
-			"project('id', 'type', 'name', 'uuid', 'ship', 'tattoo', 'cotation', 'dob', 'color', 'other')"+
-			"  .by(id).by(label).by('name').by('uuid').by('ship').by('tattoo').by('cotation').by('dob').by('color').by('other')", uuid)
+			"project('id', 'type', 'verified', 'name', 'uuid', 'ship', 'tattoo', 'cotation', 'dob', 'color', 'other')."+
+			"  by(id).by(label).by('verified').by('name').by('uuid').by('ship').by('tattoo').by('cotation').by('dob').by('color').by('other')", uuid)
 	response, err := post(request, "gremlin")
 	if err != nil {
-		fmt.Printf("error in post request %v\n", err)
-		w.WriteHeader(500)
+		fmt.Printf("error in post request %v [%s]\n", err, request)
+		utils.SendError("Error with third party server, check the logs", w, http.StatusInternalServerError)
+	} else {
+		utils.Response(response, w, http.StatusOK)
 	}
-	utils.Response(response, w, http.StatusOK)
 }
 
 func getDogPedigree(w http.ResponseWriter, r *http.Request) {
@@ -120,11 +150,12 @@ func getDogPedigree(w http.ResponseWriter, r *http.Request) {
 			"  by('uuid'))", uuid, depth)
 	response, err := post(request, "gremlin")
 	if err != nil {
-		fmt.Printf("error in post request %v\n", err)
-		w.WriteHeader(500)
+		fmt.Printf("error in post request %v [%s]\n", err, request)
+		utils.SendError("Error with third party server, check the logs", w, http.StatusInternalServerError)
+	} else {
+		tree := utils.CleanUpTreeResponse(response, w)
+		utils.Response(tree, w, http.StatusOK)
 	}
-	tree := utils.CleanUpTreeResponse(response, w)
-	utils.Response(tree, w, http.StatusOK)
 }
 
 func getDogOffsprings(w http.ResponseWriter, r *http.Request) {
@@ -146,11 +177,28 @@ func getDogOffsprings(w http.ResponseWriter, r *http.Request) {
 			"  by('uuid'))", uuid, depth)
 	response, err := post(request, "gremlin")
 	if err != nil {
-		fmt.Printf("error in post request %v\n", err)
-		w.WriteHeader(500)
+		fmt.Printf("error in post request %v [%s]\n", err, request)
+		utils.SendError("Error with third party server, check the logs", w, http.StatusInternalServerError)
+	} else {
+		tree := utils.CleanUpTreeResponse(response, w)
+		utils.Response(tree, w, http.StatusOK)
 	}
-	tree := utils.CleanUpTreeResponse(response, w)
-	utils.Response(tree, w, http.StatusOK)
+}
+
+func confirmDogData(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	uuid := vars["uuid"]
+	person := vars["person"]
+	var request = fmt.Sprintf(
+		"create edge ConfirmedBy from (select from Person where uuid = '%s') to (select from Dog where uuid = '%s')", person, uuid)
+	response, err := post(request, "sql")
+	if err != nil {
+		fmt.Printf("error in post request %v [%s]\n", err, request)
+		utils.SendError("Error with third party server, check the logs", w, http.StatusInternalServerError)
+	} else {
+		tree := utils.CleanUpTreeResponse(response, w)
+		utils.Response(tree, w, http.StatusOK)
+	}
 }
 
 func search(w http.ResponseWriter, r *http.Request) {
@@ -164,10 +212,11 @@ func search(w http.ResponseWriter, r *http.Request) {
 		"SELECT uuid, name, @CLASS as type FROM Named  WHERE SEARCH_CLASS('%s*') = true limit %d", term, limit)
 	response, err := post(request, "sql")
 	if err != nil {
-		fmt.Printf("error in post request %v\n", err)
-		w.WriteHeader(500)
+		fmt.Printf("error in post request %v [%s]\n", err, request)
+		utils.SendError("Error with third party server, check the logs", w, http.StatusInternalServerError)
+	} else {
+		utils.Response(response, w, http.StatusOK)
 	}
-	utils.Response(response, w, http.StatusOK)
 }
 
 func handleRequests() {
@@ -179,6 +228,8 @@ func handleRequests() {
 	r := mux.NewRouter().StrictSlash(true)
 	r.Handle("/api/search/{limit}/{term}", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(search)))))
 	r.Handle("/api/dog/{uuid}", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(getDog)))))
+	r.Handle("/api/dog/{uuid}/confirm/{person}", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(confirmDogData)))))
+	r.Handle("/api/dog/{uuid}/full", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(getDogWithOwnerAndBreeder)))))
 	r.Handle("/api/dog/{uuid}/parents", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(getDogParents)))))
 	r.Handle("/api/dog/{uuid}/pedigree/{depth}", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(getDogPedigree)))))
 	r.Handle("/api/dog/{uuid}/offsprings/{depth}", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(getDogOffsprings)))))
@@ -188,7 +239,7 @@ func handleRequests() {
 }
 
 func main() {
-	fmt.Println("Rest API v2.12 - Mux Routers")
+	fmt.Println("Rest API v2.13 - Mux Routers")
 	err := godotenv.Load()
 	if err != nil {
 		log.Print("Error loading .env file")

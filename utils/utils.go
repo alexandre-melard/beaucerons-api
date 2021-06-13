@@ -38,6 +38,10 @@ func Response(json []byte, w http.ResponseWriter, statusCode int) {
 	w.Write(json)
 }
 
+func SendError(str string, w http.ResponseWriter, statusCode int) {
+	Response([]byte(str), w, statusCode)
+}
+
 func CleanUpTreeResponse(tree []byte, w http.ResponseWriter) []byte {
 	regexps := [10]TreeCleanUp{
 		{regexp.MustCompile(`"`), ""},                                                        // 0
