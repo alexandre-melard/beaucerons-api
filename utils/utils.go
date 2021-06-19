@@ -32,14 +32,18 @@ func ResponseJSON(data string, w http.ResponseWriter, statusCode int) {
 	Response(jsonResponse, w, statusCode)
 }
 
-func Response(json []byte, w http.ResponseWriter, statusCode int) {
+func Response(response []byte, w http.ResponseWriter, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	w.Write(json)
+	w.Write(response)
 }
 
 func SendError(str string, w http.ResponseWriter, statusCode int) {
 	Response([]byte(str), w, statusCode)
+}
+
+func SendOk(w http.ResponseWriter) {
+	Response(nil, w, http.StatusOK)
 }
 
 func CleanUpTreeResponse(tree []byte, w http.ResponseWriter) []byte {

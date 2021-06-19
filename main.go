@@ -69,25 +69,53 @@ func post(request string, script string) ([]byte, error) {
 	return []byte(result), nil
 }
 
+func postNoResponse(request string, script string) (error) {
+	client := &http.Client{}
+	fmt.Println(request)
+	req, err := http.NewRequest("POST", "http://host.docker.internal:2480/command/beaucerons/"+script, strings.NewReader(request))
+	if err != nil {
+		return fmt.Errorf("the HTTP POST request creation failed with error %s", err)
+	}
+	req.Header.Add("Authorization", "Basic cm9vdDo3WVl4V1Rrc2NWcEFPTQ==")
+	response, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("the HTTP POST request execution failed with error %s", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("the HTTP POST request answered with an error %v", response)
+	}
+	return nil
+}
+
 func getDogWithOwnerAndBreeder(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	uuid := vars["uuid"]
 	var request = fmt.Sprintf(
 		"g.V().has('uuid', '%s')."+
 			"project('id', 'type', 'verified', 'name', 'uuid', 'ship', 'tattoo', 'cotation', 'dob', 'color', 'other', 'breeder', 'owner')."+
-			"  by(id).by(label).by('verified').by('name').by('uuid').by('ship').by('tattoo').by('cotation').by('dob').by('color').by('other')."+
-			"  by(__.in('Produced')."+
-			"    project('name', 'uuid', 'affixe')."+
-			"      by('name')."+
-			"      by('uuid')."+
-			"      by("+
-			"        coalesce("+
-			"          values('affixe'), "+
-			"          constant('')"+
-			"        )"+
-			"      )"+
-			"  )."+
-			"  by(__.in('Owns').project('name', 'uuid').by('name').by('uuid'))", uuid)
+			"  by(id)."+
+			"  by(label)."+
+			"  by(coalesce(values('verified'),constant('')))."+
+			"  by(coalesce(values('name'),constant('')))."+
+			"  by(coalesce(values('uuid'),constant('')))."+
+			"  by(coalesce(values('ship'),constant('')))."+
+			"  by(coalesce(values('tattoo'),constant('')))."+
+			"  by(coalesce(values('cotation'),constant('')))."+
+			"  by(coalesce(values('dob'),constant('')))."+
+			"  by(coalesce(values('color'),constant('')))."+
+			"  by(coalesce(values('other'),constant('')))."+
+			"  by(coalesce(__.in('Produced')."+
+			"       project('name', 'uuid', 'affixe')."+
+			"         by(coalesce(values('name'),constant('')))."+
+			"         by(coalesce(values('uuid'),constant('')))."+
+			"         by(coalesce(values('affixe'),constant('')))"+
+			"       , constant('')))."+
+			"  by(coalesce(__.in('Owns')."+
+			"       project('name', 'uuid')."+
+			"         by(coalesce(values('name'),constant('')))."+
+			"         by(coalesce(values('uuid'),constant('')))"+
+			"       , constant('')))", uuid)
 	response, err := post(request, "gremlin")
 	if err != nil {
 		fmt.Printf("error in post request %v [%s]\n", err, request)
@@ -106,7 +134,17 @@ func getDog(w http.ResponseWriter, r *http.Request) {
 	var request = fmt.Sprintf(
 		"g.V().has('uuid', '%s')."+
 			"project('id', 'type', 'verified', 'name', 'uuid', 'ship', 'tattoo', 'cotation', 'dob', 'color', 'other')."+
-			"  by(id).by(label).by('verified').by('name').by('uuid').by('ship').by('tattoo').by('cotation').by('dob').by('color').by('other')", uuid)
+			"  by(id)."+
+			"  by(label)."+
+			"  by(coalesce(values('verified'),constant('')))."+
+			"  by(coalesce(values('name'),constant('')))."+
+			"  by(coalesce(values('uuid'),constant('')))."+
+			"  by(coalesce(values('ship'),constant('')))."+
+			"  by(coalesce(values('tattoo'),constant('')))."+
+			"  by(coalesce(values('cotation'),constant('')))."+
+			"  by(coalesce(values('dob'),constant('')))."+
+			"  by(coalesce(values('color'),constant('')))."+
+			"  by(coalesce(values('other'),constant('')))", uuid)
 	response, err := post(request, "gremlin")
 	if err != nil {
 		fmt.Printf("error in post request %v [%s]\n", err, request)
@@ -122,7 +160,17 @@ func getDogParents(w http.ResponseWriter, r *http.Request) {
 	var request = fmt.Sprintf(
 		"g.V().has('uuid', '%s').in('Parent')."+
 			"project('id', 'type', 'verified', 'name', 'uuid', 'ship', 'tattoo', 'cotation', 'dob', 'color', 'other')."+
-			"  by(id).by(label).by('verified').by('name').by('uuid').by('ship').by('tattoo').by('cotation').by('dob').by('color').by('other')", uuid)
+			"  by(id)."+
+			"  by(label)."+
+			"  by(coalesce(values('verified'),constant('')))."+
+			"  by(coalesce(values('name'),constant('')))."+
+			"  by(coalesce(values('uuid'),constant('')))."+
+			"  by(coalesce(values('ship'),constant('')))."+
+			"  by(coalesce(values('tattoo'),constant('')))."+
+			"  by(coalesce(values('cotation'),constant('')))."+
+			"  by(coalesce(values('dob'),constant('')))."+
+			"  by(coalesce(values('color'),constant('')))."+
+			"  by(coalesce(values('other'),constant('')))", uuid)
 	response, err := post(request, "gremlin")
 	if err != nil {
 		fmt.Printf("error in post request %v [%s]\n", err, request)
@@ -185,20 +233,36 @@ func getDogOffsprings(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func confirmDogData(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	uuid := vars["uuid"]
-	person := vars["person"]
-	var request = fmt.Sprintf(
-		"create edge ConfirmedBy from (select from Person where uuid = '%s') to (select from Dog where uuid = '%s')", person, uuid)
-	response, err := post(request, "sql")
+func verifyDog(w http.ResponseWriter, r *http.Request, dog string) (error) {
+	var request = fmt.Sprintf("update Dog set verified=true where uuid='%s')", dog)
+	err := postNoResponse(request, "sql")
 	if err != nil {
 		fmt.Printf("error in post request %v [%s]\n", err, request)
 		utils.SendError("Error with third party server, check the logs", w, http.StatusInternalServerError)
 	} else {
-		tree := utils.CleanUpTreeResponse(response, w)
-		utils.Response(tree, w, http.StatusOK)
+		utils.SendOk(w)
 	}
+	return err
+}
+
+func createConfirmedBy(w http.ResponseWriter, r *http.Request, person string, dog string) (error) {
+	var request = fmt.Sprintf("create edge ConfirmedBy from (select from Person where uuid = '%s') to (select from Dog where uuid = '%s')", person, dog)
+	err := postNoResponse(request, "sql")
+	if err != nil {
+		fmt.Printf("error in post request %v [%s]\n", err, request)
+		utils.SendError("Error with third party server, check the logs", w, http.StatusInternalServerError)
+	} else {
+		utils.SendOk(w)
+	}
+	return err
+}
+
+func confirmDogData(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	uuid := vars["uuid"]
+	person := vars["person"]
+	createConfirmedBy(w, r, person, uuid)
+	verifyDog(w, r, uuid)
 }
 
 func search(w http.ResponseWriter, r *http.Request) {
@@ -239,7 +303,7 @@ func handleRequests() {
 }
 
 func main() {
-	fmt.Println("Rest API v2.13 - Mux Routers")
+	fmt.Println("Rest API v2.16 - Mux Routers")
 	err := godotenv.Load()
 	if err != nil {
 		log.Print("Error loading .env file")
