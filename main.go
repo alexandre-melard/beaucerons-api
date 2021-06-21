@@ -265,7 +265,7 @@ func confirmDogData(w http.ResponseWriter, r *http.Request) {
 	verifyDog(w, r, uuid)
 }
 
-func search(w http.ResponseWriter, r *http.Request) {
+func search(w http.ResponseWriter, r *http.Request, c string) {
 	vars := mux.Vars(r)
 	term := vars["term"]
 	limit, err := strconv.Atoi(vars["limit"])
@@ -273,7 +273,7 @@ func search(w http.ResponseWriter, r *http.Request) {
 		limit = 20
 	}
 	var request = fmt.Sprintf(
-		"SELECT uuid, name, @CLASS as type FROM Named  WHERE SEARCH_CLASS('%s*') = true limit %d", term, limit)
+		"SELECT uuid, name, @CLASS as type FROM %s WHERE SEARCH_CLASS('%s*') = true limit %d", c, term, limit)
 	response, err := post(request, "sql")
 	if err != nil {
 		fmt.Printf("error in post request %v [%s]\n", err, request)
@@ -283,6 +283,14 @@ func search(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func searchNamed(w http.ResponseWriter, r *http.Request) {
+	search(w, r, "Named")
+}
+
+func searchPerson(w http.ResponseWriter, r *http.Request) {
+	search(w, r, "Person")
+}
+
 func handleRequests() {
 	jwtMiddleware := jwtmiddleware.New(jwtmiddleware.Options{
 		ValidationKeyGetter: auth.CheckKey,
@@ -290,14 +298,14 @@ func handleRequests() {
 	})
 
 	r := mux.NewRouter().StrictSlash(true)
-	r.Handle("/api/search/{limit}/{term}", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(search)))))
+	r.Handle("/api/search/{limit}/{term}", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(searchNamed)))))
 	r.Handle("/api/dog/{uuid}", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(getDog)))))
 	r.Handle("/api/dog/{uuid}/confirm/{person}", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(confirmDogData)))))
 	r.Handle("/api/dog/{uuid}/full", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(getDogWithOwnerAndBreeder)))))
 	r.Handle("/api/dog/{uuid}/parents", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(getDogParents)))))
 	r.Handle("/api/dog/{uuid}/pedigree/{depth}", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(getDogPedigree)))))
 	r.Handle("/api/dog/{uuid}/offsprings/{depth}", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(getDogOffsprings)))))
-
+	r.Handle("/api/search/person/{limit}/{term}", jwtMiddleware.Handler(handlers.CompressHandler(handlers.LoggingHandler(os.Stdout, http.HandlerFunc(searchPerson)))))
 	http.Handle("/", r)
 	log.Fatal(http.ListenAndServe(":10000", nil))
 }
